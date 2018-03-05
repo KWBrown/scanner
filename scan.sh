@@ -4,6 +4,7 @@
 ip_begin=$1	#beginning of IP range
 ip_end=$2	#end of IP range
 mask=$3		#network mask
+p_range=$4	#port range 
 ip_arr=()	#array to hold IP addresses
 
 #IPv4 Validations: Parse regex for IPv4 format, verify each octets below 256
@@ -34,7 +35,6 @@ validate_mask() {
                 	echo "ERROR: NETMASK MUST BE BETWEEN 8 AND 30"
                  	exit 1
          	fi
-		echo "Valid Subnet Mask"
  	else
         	echo "ERROR: NETMASK MUST BE AN INTEGER BETWEEN 8 AND 30"
         	exit 1
@@ -45,7 +45,7 @@ validate_mask() {
 ip_class() {
         if [[ $3 -le 15 ]]
         then
-                echo "class A"
+                #class A
                 host1=`echo $1 | cut -d . -f 2-4`
                 host2=`echo $2 | cut -d . -f 2-4`
                 net=`echo $1 | cut -d . -f 1`
@@ -55,14 +55,14 @@ ip_class() {
 
         elif [[ $3 -ge 16 && $3 -lt 24 ]]
         then
-                echo "class B"
+                #class B
                 host1=`echo $1 | cut -d . -f 3-4`
                 host2=`echo $2 | cut -d . -f 3-4`
                 net=`echo $1 | cut -d . -f 1-2`
                 #echo "Host Bits Are: $host"
                 #echo "Network Bits Are: $net"
         else
-                echo "class C"
+                #class C
                 host1=`echo $1 | cut -d . -f 4`
                 host2=`echo $2 | cut -d . -f 4`
                 net=`echo $1 | cut -d . -f 1-3`
@@ -71,16 +71,29 @@ ip_class() {
         fi
 }
 
+validate_port() {
+        if [[ $1 =~ [0-9]+\-[0-9]+ ]]
+        then
+                r_begin=`echo $1 | cut -d "-" -f 1`
+                r_end=`echo $1 | cut -d "-" -f 2`
+        else
+                echo "INVALID PORT RANGE"
+                echo "FORMAT MUST FOLLOW EXAMPLE: 80-200"
+                exit 1
+        fi
+}
 
 validate_ip $ip_begin
 validate_ip $ip_end
 validate_mask $mask
+validate_port $p_range
 ip_class $ip_begin $ip_end $mask
 
 #Test layer 3 connection
+echo "Pre-vandalism in progress: Please wait while we peek through your window :)"
 for((i=$host1; i<= $host2; i++))
 do
-	echo ping $net.$i ..
+	#echo ping $net.$i ..
 	ping -c1 $net.$i > /dev/null
 	success=$?
 	if [ $success -eq 0 ]
@@ -89,29 +102,20 @@ do
 	fi
 	
 done
-echo ${ip_arr[@]}
+printf '%s\n' ${ip_arr[@]} > ip_map.txt
 
 #Scan TCP ports for successful IP addresses
-echo "scanning..."
 for sHOST in ${ip_arr[@]}
 do
-	for k in {1..200}
+	for  ((k=$r_begin; k<=$r_end; k++))
 	do
 		PORT=$k
-		(echo >/dev/tcp/$sHOST/$PORT) >& /dev/null
+		(echo >/dev/tcp/$sHOST/$PORT) >& /dev/null 
 		scan=$?
 		if [ $scan -eq 0 ]
 		then
 			echo "port $PORT on $sHOST is open"
-			echo "port $PORT on $sHOST is open" >> scan_report
+			echo "port $PORT on $sHOST is open" > scan_report
 		fi
 	done
 done
-#echo "The following Addresses Responded: ${ip_arr[@]}"
-
-
-
-
-
-
-
